@@ -65,16 +65,10 @@ function mindControl(inputs, outputs, rate) {
         download("Flappy_genome_"+new Date().toLocaleString()+".txt", gen);
     }
     
-    this.downloadGen = function() {
-        var genJSON = this.genomes.toJSON();
-        var gen = JSON.parse(genJSON);
-        download("generation_"+new Date().toLocaleString()+".txt", gen);
-    }
-    
     //implement the method to setup network from JSON
     this.setupFromJSON = function(gen) {
         var gen_j = JSON.parse(gen);
-        this.genomes[0] = Network.fromJSON(gen_j);
+        this.network = Network.fromJSON(gen_j);
     }
     
 }

@@ -664,3 +664,21 @@ $('#mbutton').click(function(){
    controller.getJSON();
    //gen.getJSON();
 });
+
+$("#lbutton").click( function() {
+   //var txt = readTextFile("file:///home/caiogomes/Downloads/Flappy_genome_19-02-2017%2013-31-03.txt"); 
+   //console.log(txt);
+   //block the game execution.
+   canwork = 0;
+   playerDead();
+   var filename ="https://netnode-minimarvin.c9users.io/games/funcionais/flappy-bird/floppybird.3/genomes/Flappy_genome_19-02-2017%2013-31-03.txt";
+   jQuery.get(filename, function(data) {
+      //console.log(data);
+      //set the gen into the network
+      console.log("network changing.");
+      controller.setupFromJSON(data);
+      console.log("network changed.");
+      canwork = 1;//allow the game to keep executing
+      
+   });
+});
