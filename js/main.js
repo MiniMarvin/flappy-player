@@ -15,6 +15,30 @@
    limitations under the License.
 */
 
+//-------------------FeedForward percetron methode---------------------------//
+var controller = new mindControl(4,2,0.1);
+var learn = 1; //says that the system should be learning in the game execution
+
+//---------------------Genetic Algorithm methode-----------------------------//
+var inputNum = 1;
+var outputNum = 1;
+var genNum = 5;
+var gen = new brain(genNum);
+gen.genNets(inputNum,outputNum);
+var keepCounting = 0;
+var canwork = 1;
+var makejump = false;
+var humanTeach = 1;
+var humanlog = {
+   place:[],
+   action: []
+};
+var loginputs = [];
+var jumped = 0;
+var pontuate = 0;
+//var control = 0;
+//----------------------------------END--------------------------------------//
+
 var debugmode = false;
 
 var states = Object.freeze({
@@ -143,6 +167,7 @@ function startGame()
    
    //jump from the start!
    playerJump();
+   //control = 1;
 }
 
 function updatePlayer(player)
@@ -154,8 +179,22 @@ function updatePlayer(player)
    $(player).css({ rotate: rotation, top: position });
 }
 
+
+var pipetop = null;
+var pipeleft = null; // for some reason it starts at the inner pipes offset, not the outer pipes.
+var piperight = null;
+var pipebottom = null;
+var boxwidth = null;
+var boxheight = null;
+var boxleft = null;
+var boxtop = null;
+var boxright = null;
+var boxbottom = null;
+var mygame = 0;
+
 function gameloop() {
    var player = $("#player");
+   //mygame = 1; //game loop started
    
    //update the player speed/position
    velocity += gravity;
@@ -168,13 +207,21 @@ function gameloop() {
    var box = document.getElementById('player').getBoundingClientRect();
    var origwidth = 34.0;
    var origheight = 24.0;
-   
+   /*
    var boxwidth = origwidth - (Math.sin(Math.abs(rotation) / 90) * 8);
    var boxheight = (origheight + box.height) / 2;
    var boxleft = ((box.width - boxwidth) / 2) + box.left;
    var boxtop = ((box.height - boxheight) / 2) + box.top;
    var boxright = boxleft + boxwidth;
    var boxbottom = boxtop + boxheight;
+   */
+   
+   boxwidth = origwidth - (Math.sin(Math.abs(rotation) / 90) * 8);
+   boxheight = (origheight + box.height) / 2;
+   boxleft = ((box.width - boxwidth) / 2) + box.left;
+   boxtop = ((box.height - boxheight) / 2) + box.top;
+   boxright = boxleft + boxwidth;
+   boxbottom = boxtop + boxheight;
    
    //if we're in debug mode, draw the bounding box
    if(debugmode)
@@ -206,10 +253,17 @@ function gameloop() {
    var nextpipe = pipes[0];
    var nextpipeupper = nextpipe.children(".pipe_upper");
    
+   /*
    var pipetop = nextpipeupper.offset().top + nextpipeupper.height();
    var pipeleft = nextpipeupper.offset().left - 2; // for some reason it starts at the inner pipes offset, not the outer pipes.
    var piperight = pipeleft + pipewidth;
    var pipebottom = pipetop + pipeheight;
+   */
+   
+   pipetop = nextpipeupper.offset().top + nextpipeupper.height();
+   pipeleft = nextpipeupper.offset().left - 2; // for some reason it starts at the inner pipes offset, not the outer pipes.
+   piperight = pipeleft + pipewidth;
+   pipebottom = pipetop + pipeheight;
    
    if(debugmode)
    {
@@ -227,7 +281,9 @@ function gameloop() {
       if(boxtop > pipetop && boxbottom < pipebottom)
       {
          //yeah! we're within bounds
-         
+         //if( boxleft >= (piperight+pipeleft)/2 && pontuate == score ) {
+            //playerScore();
+         //}
       }
       else
       {
@@ -238,16 +294,62 @@ function gameloop() {
    }
    
    
+   
    //have we passed the imminent danger?
    if(boxleft > piperight)
    {
       //yes, remove it
       pipes.splice(0, 1);
       
+      pontuate = score;
       //and score a point
       playerScore();
    }
+   
+   //--------------------network control of the system------------------------//
+   
+   canwork = 0;
+   
+   var inputs = [];
+   //inputs.push(pipeleft);
+   //inputs.push( (pipeleft-boxleft) ); // $("#flyarea").width() );//distance from pipe begin
+   inputs.push( (pipeleft-boxright) ); // $("#flyarea").width() );
+   inputs.push( ( boxtop - pipetop)*5.0 ); // flyArea);
+   inputs.push( ( pipebottom - boxbottom)*5.0 ); // flyArea );
+   inputs.push( velocity );
+   //inputs.push( position);
+   /*
+   loginputs = inputs;
+   
+   var genOut = gen.execute(inputs);
+   if(genOut > 0.5 && makejump && humanTeach == 0) {
+      //screenClick();
+      playerJump();
+   }
+   
+   if(jumped == 1) {
+      humanlog.place.push(loginputs);
+      humanlog.action.push(0);
+   }
+   else {
+      jumped = 0;
+   }
+   */
+
+   var netVal = controller.execute(inputs);
+   //console.log(netVal);
+   if(netVal == 1 && makejump) playerJump();
+   
+   //yeah! we're within bounds
+   if( boxbottom >= pipebottom - 16 && learn == 1) {
+      controller.evaluate(inputs, [1,0])
+   }
+   else{
+      controller.evaluate(inputs, [0,1])
+   }
+   
 }
+
 
 //Handle space bar
 $(document).keydown(function(e){
@@ -282,10 +384,18 @@ function screenClick()
 
 function playerJump()
 {
+   humanlog.place.push(loginputs);
+   humanlog.action.push(1);
+   
    velocity = jump;
    //play jump sound
    soundJump.stop();
    soundJump.play();
+   
+   if(humanTeach == 1){
+      jumped = 1;
+   }
+   
 }
 
 function setBigScore(erase)
@@ -347,6 +457,7 @@ function setMedal()
 
 function playerDead()
 {
+   canwork = false;
    //stop animating everything!
    $(".animated").css('animation-play-state', 'paused');
    $(".animated").css('-webkit-animation-play-state', 'paused');
@@ -381,6 +492,25 @@ function playerDead()
          });
       });
    }
+   
+   //control = 0;
+   //--------------------------network control area---------------------------//
+   /*
+   if(humanTeach == 1) {
+      gen.teach(humanlog, score);
+   }
+   else{
+      //gen.setFitness(score, keepCounting);
+      gen.setFitness(score);
+      gen.next();
+   }
+   console.log(score);
+   pontuate = 0;
+   humanTeach = 0;
+   */
+   canwork = 1;
+   keepCounting = 0;
+   mygame = 0;
 }
 
 function showScore()
@@ -452,11 +582,14 @@ $("#replay").click(function() {
 
 function playerScore()
 {
+   pontuate = score;
    score += 1;
    //play score sound
    soundScore.stop();
    soundScore.play();
    setBigScore();
+   //gen.setFitness(score);
+   
 }
 
 function updatePipes()
@@ -497,3 +630,37 @@ var isIncompatible = {
    return (isIncompatible.Android() || isIncompatible.BlackBerry() || isIncompatible.iOS() || isIncompatible.Opera() || isIncompatible.Safari() || isIncompatible.Windows());
    }
 };
+
+//Handle space bar untill the plumbers are okay and restart game every time it looses.
+setInterval(function(e){
+   if(canwork == 1 && (currentstate == states.GameScreen || currentstate == states.SplashScreen) ) {
+      screenClick();
+   }
+   if(replayclickable == true) {
+      //screenClick();
+      $("#replay").click();
+   }
+   
+}, 650);   
+
+setInterval(function(e){
+   
+   makejump = !makejump;
+   keepCounting++;
+   
+   //humanlog.place.push(loginputs);
+   //humanlog.action.push(jumped);
+   /*if(jumped) {
+      humanlog.action.push(1);
+   } else humanlog.action.push(0);*/
+   
+   jumped = 0;
+   
+   
+}, 50);  
+
+$('#mbutton').click(function(){
+   console.log("here");
+   controller.getJSON();
+   //gen.getJSON();
+});
